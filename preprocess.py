@@ -7,8 +7,6 @@ import os
 import time
 import itertools
 import argparse
-import sys; 
-#sys.path.append('..')
 
 
 from tqdm.auto import tqdm
@@ -36,7 +34,7 @@ parser = EDGAR.parser(data_dir=data_dir)
 
 
 # List of companies to process
-tikrs = open(os.path.join("..", 'tickers.txt')).read().strip()
+tikrs = open(os.path.join('tickers.txt')).read().strip()
 tikrs = [i.split(',')[0].lower() for i in tikrs.split('\n')]
 if args.demo:
     tikrs = ['nflx']
