@@ -26,6 +26,7 @@ class NLPTrainer(Trainer):
 
 
 # HYPER PARAMETERS
+DATA_DIR = "data"
 MODEL_CONFIG_NAME = 'distilbert-base-uncased'
 BATCH_SIZE = 512
 NUM_WORKERS = 2
@@ -35,9 +36,8 @@ PROBLEM_TYPE = 'single_label_classification'
 
 # EDGAR opts
 
-data_dir = os.path.join('data')
 setting_dir_name = 'DEFAULT'
-metadata = EDGAR.metadata(data_dir=data_dir)
+metadata = EDGAR.metadata(data_dir=DATA_DIR)
 
 # List of companies to process
 tikrs = open('tickers.txt').read().strip()

@@ -21,6 +21,15 @@ import torch
 import EDGAR
 
 
+# SETTINGS
+MAX_SENTENCE_LENGTH = 200
+PREPROCESS_PIPE_NAME = 'DEFAULT'
+SPARSE_WEIGHT = 0.5
+MIN_OCCUR_PERC = 0
+MIN_OCCUR_COUNT = 20
+VOCAB_LENGTH = 12000
+DATA_DIR = "data"
+
 # Command line magic for common use case to regenerate dataset
 #   --force to overwrite outdated local files
 parser = argparse.ArgumentParser()
@@ -28,10 +37,9 @@ parser.add_argument('-f', '--force', action='store_true')
 parser.add_argument('-nflx', '--demo', action='store_true')
 args = parser.parse_args()
 
-data_dir = os.path.join("data")
-loader = EDGAR.downloader(data_dir=data_dir)
-metadata = EDGAR.metadata(data_dir=data_dir)
-parser = EDGAR.parser(data_dir=data_dir)
+loader = EDGAR.downloader(data_dir=DATA_DIR)
+metadata = EDGAR.metadata(data_dir=DATA_DIR)
+parser = EDGAR.parser(data_dir=DATA_DIR)
 
 
 # List of companies to process
@@ -145,14 +153,6 @@ for tikr in tikrs:
 
 label_map = {y: i for i, y in enumerate(label_map)}
 
-# SETTINGS
-MAX_SENTENCE_LENGTH = 200
-PREPROCESS_PIPE_NAME = 'DEFAULT'
-SPARSE_WEIGHT = 0.5
-MIN_OCCUR_PERC = 0
-MIN_OCCUR_COUNT = 20
-
-
 # saves the raw data
 vocab_dir = os.path.join(metadata.data_dir, "dataloader_cache")
 out_dir = os.path.join(vocab_dir, PREPROCESS_PIPE_NAME)
@@ -194,7 +194,7 @@ new_special_tokens = ["[ALPHANUMERIC]"]
 
 tokenizer = tokenizer.train_new_from_iterator(
     text_iterator=text_data,
-    vocab_size=10000,
+    vocab_size=VOCAB_LENGTH,
     new_special_tokens=new_special_tokens)
 
 # Save the trained tokenizer
