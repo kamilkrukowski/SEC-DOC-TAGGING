@@ -1,18 +1,12 @@
 import os
 
 from torch import Tensor
-import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, random_split
 import datasets
 import evaluate
-from sklearn.metrics import roc_auc_score
 import numpy as np
-from transformers import BertTokenizerFast, Trainer, AutoModelForSequenceClassification, AutoConfig
+from transformers import Trainer
 import transformers
-from tqdm.auto import tqdm
-
-
 import EDGAR
 
 
@@ -57,31 +51,41 @@ out_dir = os.path.join(vocab_dir, PREPROCESS_PIPE_NAME)
 # label mapping
 label_fpath = os.path.join(out_dir, 'labels.txt')
 label_list = np.loadtxt(label_fpath, dtype=str)
-label2id = {y: i+1 for i, y in enumerate(label_list)}
+label2id = {y: i + 1 for i, y in enumerate(label_list)}
 label2id['[UNKNOWN]'] = 0
 
 num_labels = len(label2id)
 id2label = {label2id[key]: key for key in label2id}
 
 # Load DATASET
-features = datasets.Features({"x": datasets.Value(dtype='string'),
-                              "labels": datasets.ClassLabel(num_classes=num_labels, names=list(label2id.keys()))})
+features = datasets.Features(
+    {"x": datasets.Value(dtype='string'),
+     "labels": datasets.ClassLabel(
+         num_classes=num_labels, names=list(label2id.keys()))})
 
 train_inputs_fpath = os.path.join(out_dir, 'train_inputs.csv')
-train_dataset = datasets.load_dataset('csv', data_files=train_inputs_fpath, column_names=list(features.keys()), features=features,
-                                      delimiter='\t', download_mode=datasets.DownloadMode.FORCE_REDOWNLOAD)
+train_dataset = datasets.load_dataset(
+    'csv', data_files=train_inputs_fpath, column_names=list(features.keys()),
+    features=features, delimiter='\t',
+    download_mode=datasets.DownloadMode.FORCE_REDOWNLOAD)
 
 val_inputs_fpath = os.path.join(out_dir, 'val_inputs.csv')
-val_dataset = datasets.load_dataset('csv', data_files=val_inputs_fpath, column_names=list(features.keys()), features=features,
-                                    delimiter='\t', download_mode=datasets.DownloadMode.FORCE_REDOWNLOAD)
+val_dataset = datasets.load_dataset(
+    'csv', data_files=val_inputs_fpath, column_names=list(features.keys()),
+    features=features, delimiter='\t',
+    download_mode=datasets.DownloadMode.FORCE_REDOWNLOAD)
 
 # CREATE tokenizer
 tokenizer = transformers.BertTokenizer.from_pretrained(MODEL_CONFIG_NAME)
 
 
 def tokenize(text: str, unwrap: bool = False):
-    out = tokenizer.encode(text, return_tensors='pt',
-                           padding='max_length', truncation=True, max_length=400)
+    out = tokenizer.encode(
+        text,
+        return_tensors='pt',
+        padding='max_length',
+        truncation=True,
+        max_length=400)
     if unwrap:
         return out[0]
     return out
@@ -89,8 +93,8 @@ def tokenize(text: str, unwrap: bool = False):
 
 # CREATE MODEL
 model = transformers.AutoModelForSequenceClassification.from_pretrained(
-    MODEL_CONFIG_NAME, num_labels=num_labels, label2id=label2id, id2label=id2label,
-    problem_type=PROBLEM_TYPE)
+    MODEL_CONFIG_NAME, num_labels=num_labels, label2id=label2id,
+    id2label=id2label, problem_type=PROBLEM_TYPE)
 
 # SET UP TRAINING PARAMETERS
 training_args = transformers.TrainingArguments(
@@ -107,7 +111,8 @@ def compute_metrics(eval_pred):
     prediction_scores = F.softmax(Tensor(logits), dim=1).numpy()
     predictions = np.argmax(prediction_scores, axis=-1)
     return {**accuracy.compute(predictions=predictions, references=labels)}
-    # **auroc.compute(prediction_scores=prediction_scores, references=labels, multi_class='ovr', average='weighted')}
+    # **auroc.compute(prediction_scores=prediction_scores,
+    #   references=labels, multi_class='ovr', average='weighted')}
 
 
 train_dataset['train'] = train_dataset['train'].map(

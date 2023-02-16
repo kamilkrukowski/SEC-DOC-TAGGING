@@ -1,6 +1,8 @@
 """
-    This file will downloads and parses financial data from the SEC EDGAR database for a list of companies specified in the "tickers.txt" file. 
-    TThe data is then processed and saved as a tokenizer and raw data file in the current directory.
+    This file will downloads and parses financial data from the SEC EDGAR
+    database for a list of companies specified in the "tickers.txt" file.
+    The data is then processed and saved as a tokenizer
+        and raw data file in the current directory.
 """
 
 import os
@@ -45,7 +47,7 @@ for tikr in tikrs:
 def download_tikrs(tikrs):
     to_download = []
     if args.force:
-        print(f"Forcing Downloads...")
+        print("Forcing Downloads...")
         for tikr in tikrs:
             to_download.append(tikr)
     else:
@@ -63,7 +65,7 @@ def download_tikrs(tikrs):
 
 def change_digit_to_alphanumeric(text):
     for alph in '0123456789':
-        text = text.replace(alph, f" [ALPHANUMERIC] ")
+        text = text.replace(alph, " [ALPHANUMERIC] ")
     return text
 
 
@@ -73,8 +75,13 @@ raw_data = list()
 label_map = set()
 for tikr in tikrs:
     # Unpack downloaded files into relevant directories
-    loader.unpack_bulk(tikr, loading_bar=True, force=args.force,
-                       complete=False, document_type="10-Q", desc=f"{tikr} :Inflating HTM")
+    loader.unpack_bulk(
+        tikr,
+        loading_bar=True,
+        force=args.force,
+        complete=False,
+        document_type="10-Q",
+        desc=f"{tikr} :Inflating HTM")
     annotated_docs = parser.get_annotated_submissions(tikr, silent=True)
 
     if (args.demo):
@@ -88,7 +95,7 @@ for tikr in tikrs:
         found_indices = np.unique([int(i) for i in features['found_index']])
         # Structure: Text str, Labels dict, labelled bool
         data = {i: {'text': None, 'labels': dict(), 'is_annotated': False,
-                    'in_table': False, "page_number": 0} for i in found_indices}
+                'in_table': False, "page_number": 0} for i in found_indices}
 
         for i in range(len(features)):
             i = features.iloc[i, :]
@@ -105,7 +112,9 @@ for tikr in tikrs:
                 x is a list with length of 2. Items in the list are:
                     1. value: the text value of the annotated label (e.g. 10-Q)
                     2. neighboring text: the text on the given page.
-                y is a list with ['name', 'id', 'contextref', 'decimals', 'format', 'unitref'] tags
+                y is a list with
+                    ['name', 'id', 'contextref',
+                        'decimals', 'format', 'unitref']
                 """
                 d['text'] = i['span_text']
 
@@ -116,7 +125,8 @@ for tikr in tikrs:
 
         doc_data = []
         for i in data:
-            # This checks for the all the element on a page. Only add element that has labels to the training set.
+            # This checks for the all the element on a page. Only add element
+            # that has labels to the training set.
             if data[i]['in_table']:
                 continue
             if not data[i]['is_annotated']:
@@ -127,10 +137,11 @@ for tikr in tikrs:
             for label in labels:
                 label_map = label_map.union({label[0]})
 
-            # Data format: (x,y) where x refers to training features (present for unnannotated docs), and y refers to labels to predict
+            # Data format: (x,y) where x refers to training features (present
+            # for unnannotated docs), and y refers to labels to predict
             doc_data.append((d['text'], labels))
 
-        raw_data.append([doc_data,  doc, tikr])
+        raw_data.append([doc_data, doc, tikr])
 
 label_map = {y: i for i, y in enumerate(label_map)}
 
@@ -164,7 +175,7 @@ reindexing = list(reversed(np.argsort(counts)))
 label_counts = dict(zip(all_labels[reindexing], counts[reindexing]))
 # Create a list of words that meet the criteria
 selected_labels = [label for label, count in label_counts.items(
-) if count >= MIN_OCCUR_COUNT and count/all_labels_count >= MIN_OCCUR_PERC]
+) if count >= MIN_OCCUR_COUNT and count / all_labels_count >= MIN_OCCUR_PERC]
 
 # Remove all company specific systems predicted
 kept_systems = {'dei', 'us-gaap'}
@@ -182,7 +193,9 @@ tokenizer = BertTokenizerFast.from_pretrained('bert-large-cased')
 new_special_tokens = ["[ALPHANUMERIC]"]
 
 tokenizer = tokenizer.train_new_from_iterator(
-    text_iterator=text_data, vocab_size=10000, new_special_tokens=new_special_tokens)
+    text_iterator=text_data,
+    vocab_size=10000,
+    new_special_tokens=new_special_tokens)
 
 # Save the trained tokenizer
 tokenizer.save_pretrained(out_dir)
@@ -190,7 +203,7 @@ tokenizer.save_pretrained(out_dir)
 # Embed all sentences, create label vectors, create loss weight masks
 inputs = []
 num_labels = len(selected_labels)
-label_map = {y: i+1 for i, y in enumerate(selected_labels)}
+label_map = {y: i + 1 for i, y in enumerate(selected_labels)}
 pos_weights = None
 neg_weights = None
 for document in raw_data:
@@ -198,10 +211,10 @@ for document in raw_data:
     for elem in elems:
         inputs.append(tokenizer(elem[0], return_tensors='pt', truncation=True))
         # Extra one for unknown label
-        inputs[-1]["y"] = torch.zeros(num_labels+1).float()
+        inputs[-1]["y"] = torch.zeros(num_labels + 1).float()
         num_labelled = 0
-        pos_weights = torch.zeros(num_labels+1).float()
-        neg_weights = torch.ones(num_labels+1).float()
+        pos_weights = torch.zeros(num_labels + 1).float()
+        neg_weights = torch.ones(num_labels + 1).float()
 
         for label in elem[1]:
             label_idx = label_map.get(label[0], 0)
@@ -213,7 +226,7 @@ for document in raw_data:
 
             num_labelled = num_labelled + 1
 
-        pos_weights = pos_weights * (1-SPARSE_WEIGHT) / num_labelled
+        pos_weights = pos_weights * (1 - SPARSE_WEIGHT) / num_labelled
         neg_weights = neg_weights * \
             (SPARSE_WEIGHT) / (num_labels + 1 - num_labelled)
         inputs[-1]["loss_mask"] = pos_weights + neg_weights
