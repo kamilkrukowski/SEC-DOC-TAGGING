@@ -13,6 +13,6 @@ It is currently available on the PyPi Test Server
 
 To create conda environment:
 ```
-conda create -n sectagging -c conda-forge -c anaconda python=3.10 pytorch scipy numpy selenium=4.5.0 pyyaml chardet requests lxml matplotlib evaluate transformers datasets
+conda create -n sectagging -c conda-forge -c anaconda python=3.10 pytorch scipy numpy selenium=4.5.0 pyyaml chardet requests lxml scikit-learn matplotlib evaluate transformers datasets
 conda activate sectagging
 ```
