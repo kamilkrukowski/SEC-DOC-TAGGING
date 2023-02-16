@@ -121,9 +121,9 @@ val_dataset['train'] = val_dataset['train'].map(
     lambda batch: {"input_ids": tokenize(batch["x"], unwrap=True)})
 
 trainer = NLPTrainer(model=model,
-                  args=training_args,
-                  train_dataset=train_dataset['train'].shuffle(seed=17),
-                  eval_dataset=val_dataset['train'].shuffle(seed=17),
-                  compute_metrics=compute_metrics
-                  )
+                     args=training_args,
+                     train_dataset=train_dataset['train'].shuffle(seed=17),
+                     eval_dataset=val_dataset['train'].shuffle(seed=17),
+                     compute_metrics=compute_metrics
+                     )
 trainer.train()
