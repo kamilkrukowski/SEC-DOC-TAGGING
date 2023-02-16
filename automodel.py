@@ -35,12 +35,12 @@ PROBLEM_TYPE = 'single_label_classification'
 
 # EDGAR opts
 
-data_dir = os.path.join('..', 'data')
+data_dir = os.path.join('data')
 setting_dir_name = 'DEFAULT'
 metadata = EDGAR.metadata(data_dir=data_dir)
 
 # List of companies to process
-tikrs = open(os.path.join('..', 'tickers.txt')).read().strip()
+tikrs = open('tickers.txt').read().strip()
 tikrs = [i.split(',')[0].lower() for i in tikrs.split('\n')]
 tikrs = ['nflx']
 
@@ -120,7 +120,7 @@ train_dataset['train'] = train_dataset['train'].map(
 val_dataset['train'] = val_dataset['train'].map(
     lambda batch: {"input_ids": tokenize(batch["x"], unwrap=True)})
 
-trainer = Trainer(model=model,
+trainer = NLPTrainer(model=model,
                   args=training_args,
                   train_dataset=train_dataset['train'].shuffle(seed=17),
                   eval_dataset=val_dataset['train'].shuffle(seed=17),
