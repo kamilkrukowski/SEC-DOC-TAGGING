@@ -26,7 +26,7 @@ class NLPTrainer(Trainer):
 
 
 # HYPER PARAMETERS
-DATA_DIR = "data"
+DATA_DIR = 'data'
 MODEL_CONFIG_NAME = 'distilbert-base-uncased'
 BATCH_SIZE = 512
 NUM_WORKERS = 2
@@ -45,7 +45,7 @@ tikrs = [i.split(',')[0].lower() for i in tikrs.split('\n')]
 tikrs = ['nflx']
 
 # loading setup
-vocab_dir = os.path.join(metadata.data_dir, "dataloader_cache")
+vocab_dir = os.path.join(metadata.data_dir, 'dataloader_cache')
 out_dir = os.path.join(vocab_dir, PREPROCESS_PIPE_NAME)
 
 # label mapping
@@ -59,8 +59,8 @@ id2label = {label2id[key]: key for key in label2id}
 
 # Load DATASET
 features = datasets.Features(
-    {"x": datasets.Value(dtype='string'),
-     "labels": datasets.ClassLabel(
+    {'x': datasets.Value(dtype='string'),
+     'labels': datasets.ClassLabel(
          num_classes=num_labels, names=list(label2id.keys()))})
 
 train_inputs_fpath = os.path.join(out_dir, 'train_inputs.csv')
@@ -98,12 +98,12 @@ model = transformers.AutoModelForSequenceClassification.from_pretrained(
 
 # SET UP TRAINING PARAMETERS
 training_args = transformers.TrainingArguments(
-    output_dir="test_trainer", evaluation_strategy="steps",
+    output_dir='test_trainer', evaluation_strategy='steps',
     eval_steps=10, save_steps=10, logging_steps=10,
     per_device_train_batch_size=32,
     per_device_eval_batch_size=32)
-accuracy = evaluate.load("accuracy")
-auroc = evaluate.load("roc_auc", "multiclass")
+accuracy = evaluate.load('accuracy')
+auroc = evaluate.load('roc_auc', 'multiclass')
 
 
 def compute_metrics(eval_pred):
@@ -116,9 +116,9 @@ def compute_metrics(eval_pred):
 
 
 train_dataset['train'] = train_dataset['train'].map(
-    lambda batch: {"input_ids": tokenize(batch["x"], unwrap=True)})
+    lambda batch: {'input_ids': tokenize(batch['x'], unwrap=True)})
 val_dataset['train'] = val_dataset['train'].map(
-    lambda batch: {"input_ids": tokenize(batch["x"], unwrap=True)})
+    lambda batch: {'input_ids': tokenize(batch['x'], unwrap=True)})
 
 trainer = NLPTrainer(model=model,
                      args=training_args,
