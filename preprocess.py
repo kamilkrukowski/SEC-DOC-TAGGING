@@ -20,6 +20,7 @@ import torch
 
 import EDGAR
 
+
 # SETTINGS
 MAX_SENTENCE_LENGTH = 200
 PREPROCESS_PIPE_NAME = 'DEFAULT'
@@ -27,13 +28,14 @@ SPARSE_WEIGHT = 0.5
 MIN_OCCUR_PERC = 0
 MIN_OCCUR_COUNT = 20
 VOCAB_LENGTH = 12000
-DATA_DIR = 'data'
+DATA_DIR = "data"
 
 # Command line magic for common use case to regenerate dataset
 #   --force to overwrite outdated local files
 parser = argparse.ArgumentParser()
 parser.add_argument('-f', '--force', action='store_true')
 parser.add_argument('-nflx', '--demo', action='store_true')
+parser.add_argument('-nonnumeric', '--nonnumeric', action='store_true')
 args = parser.parse_args()
 
 loader = EDGAR.downloader(data_dir=DATA_DIR)
@@ -54,7 +56,7 @@ for tikr in tikrs:
 def download_tikrs(tikrs):
     to_download = []
     if args.force:
-        print('Forcing Downloads...')
+        print("Forcing Downloads...")
         for tikr in tikrs:
             to_download.append(tikr)
     else:
@@ -64,7 +66,7 @@ def download_tikrs(tikrs):
                 to_download.append(tikr)
 
     if len(to_download) != 0:
-        for tikr in tqdm(to_download, desc='Downloading', leave=False):
+        for tikr in tqdm(to_download, desc="Downloading", leave=False):
             loader.query_server(tikr, force=args.force,
                                 filing_type=FilingType.FILING_10Q)
             time.sleep(5)
@@ -72,7 +74,7 @@ def download_tikrs(tikrs):
 
 def change_digit_to_alphanumeric(text):
     for alph in '0123456789':
-        text = text.replace(alph, ' [ALPHANUMERIC] ')
+        text = text.replace(alph, " [ALPHANUMERIC] ")
     return text
 
 
@@ -87,8 +89,8 @@ for tikr in tikrs:
         loading_bar=True,
         force=args.force,
         complete=False,
-        document_type='10-Q',
-        desc=f'{tikr} :Inflating HTM')
+        document_type="10-Q",
+        desc=f"{tikr} :Inflating HTM")
     annotated_docs = parser.get_annotated_submissions(tikr, silent=True)
 
     if (args.demo):
@@ -102,10 +104,12 @@ for tikr in tikrs:
         found_indices = np.unique([int(i) for i in features['found_index']])
         # Structure: Text str, Labels dict, labelled bool
         data = {i: {'text': None, 'labels': dict(), 'is_annotated': False,
-                'in_table': False, 'page_number': 0} for i in found_indices}
+                'in_table': False, "page_number": 0} for i in found_indices}
 
         for i in range(len(features)):
             i = features.iloc[i, :]
+            if args.nonnumeric and i["anno_ix_type"] != "ix:nonnumeric":
+                    continue
             d = data[i['found_index']]
             # Skip documents which are NOT annotated
             if i['in_table']:
@@ -113,7 +117,7 @@ for tikr in tikrs:
             if i['is_annotated']:
                 d['is_annotated'] = True
 
-            d['page_number'] = i['page_number']
+            d['page_number'] = i["page_number"]
             if d['text'] is None:
                 """
                 x is a list with length of 2. Items in the list are:
@@ -127,10 +131,12 @@ for tikr in tikrs:
 
             if i['anno_index'] is not None:
                 d['labels'][i['anno_index']] = []
-                for _attr in ['name', 'id', 'contextref', 'decimals']:
-                    d['labels'][i['anno_index']].append(i['anno_' + _attr])
+                for _attr in ['name', 'id', 'contextref', 'decimals',"ix_type"]:
+                        d['labels'][i['anno_index']].append(i["anno_" + _attr])
+
 
         doc_data = []
+
         for i in data:
             # This checks for the all the element on a page. Only add element
             # that has labels to the training set.
@@ -148,19 +154,22 @@ for tikr in tikrs:
             # for unnannotated docs), and y refers to labels to predict
             doc_data.append((d['text'], labels))
 
+
         raw_data.append([doc_data, doc, tikr])
+
+
 
 label_map = {y: i for i, y in enumerate(label_map)}
 
 # saves the raw data
-vocab_dir = os.path.join(metadata.data_dir, 'dataloader_cache')
+vocab_dir = os.path.join(metadata.data_dir, "dataloader_cache")
 out_dir = os.path.join(vocab_dir, PREPROCESS_PIPE_NAME)
 if not os.path.exists(out_dir):
     if not os.path.exists(vocab_dir):
         os.mkdir(vocab_dir)
     os.mkdir(out_dir)
 np.savetxt(os.path.join(out_dir, 'all_possible_labels.txt'),
-           [key for key in label_map], fmt='%s')
+           [key for key in label_map], fmt="%s")
 
 # i is the data in document
 # j is the (text, list of list labels)
@@ -181,7 +190,7 @@ kept_systems = {'dei', 'us-gaap'}
 selected_labels = [i for i in selected_labels if i.split(':')[
     0] in kept_systems]
 np.savetxt(os.path.join(out_dir, 'labels.txt'), [
-           label for label in selected_labels], fmt='%s')
+           label for label in selected_labels], fmt="%s")
 
 
 # Define your text data
@@ -189,7 +198,7 @@ text_data = [change_digit_to_alphanumeric(
     i[0]) for i in itertools.chain.from_iterable([i[0] for i in raw_data])]
 tokenizer = BertTokenizerFast.from_pretrained('bert-large-cased')
 # Define new special token for digit
-new_special_tokens = ['[ALPHANUMERIC]']
+new_special_tokens = ["[ALPHANUMERIC]"]
 
 tokenizer = tokenizer.train_new_from_iterator(
     text_iterator=text_data,
@@ -210,7 +219,7 @@ for document in raw_data:
     for elem in elems:
         inputs.append(tokenizer(elem[0], return_tensors='pt', truncation=True))
         # Extra one for unknown label
-        inputs[-1]['y'] = torch.zeros(num_labels + 1).float()
+        inputs[-1]["y"] = torch.zeros(num_labels + 1).float()
         num_labelled = 0
         pos_weights = torch.zeros(num_labels + 1).float()
         neg_weights = torch.ones(num_labels + 1).float()
@@ -221,11 +230,11 @@ for document in raw_data:
                 continue
             pos_weights[label_idx] = 1
             neg_weights[label_idx] = 0
-            inputs[-1]['y'][label_idx] = 1
+            inputs[-1]["y"][label_idx] = 1
 
             num_labelled = num_labelled + 1
 
         pos_weights = pos_weights * (1 - SPARSE_WEIGHT) / num_labelled
         neg_weights = neg_weights * \
             (SPARSE_WEIGHT) / (num_labels + 1 - num_labelled)
-        inputs[-1]['loss_mask'] = pos_weights + neg_weights
+        inputs[-1]["loss_mask"] = pos_weights + neg_weights
