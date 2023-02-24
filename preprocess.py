@@ -7,13 +7,11 @@
 """
 
 import os
-import time
 import itertools
 import argparse
 
 
 from tqdm.auto import tqdm
-from secedgar import FilingType
 from transformers import BertTokenizerFast
 import numpy as np
 import torch
@@ -30,6 +28,8 @@ MIN_OCCUR_PERC = 0
 MIN_OCCUR_COUNT = 20
 VOCAB_LENGTH = 12000
 DATA_DIR = 'data'
+SILENT = True
+N_TIKRS = 3
 
 # Command line magic for common use case to regenerate dataset
 #   --force to overwrite outdated local files
@@ -43,58 +43,35 @@ parser.add_argument(
     '-n', '--nonnumeric', action='store_true',
     help='remove not nonnumeric label')
 args = parser.parse_args()
+
+# Set up EDGAR members
 loader = EDGAR.downloader(data_dir=DATA_DIR)
 metadata = EDGAR.metadata(data_dir=DATA_DIR)
 parser = EDGAR.parser(data_dir=DATA_DIR)
 
 # List of companies to process
-tikrs = open(os.path.join('tickers.txt')).read().strip()
-tikrs = [i.split(',')[0].lower() for i in tikrs.split('\n')]
+tikrs = parser.metadata.get_tikr_list()[:N_TIKRS]
+
+document_type = EDGAR.DocumentType('10q')
 if args.demo:
     tikrs = ['nflx']
-
-for tikr in tikrs:
-    loader.metadata.load_tikr_metadata(tikr)
-
-
-def download_tikrs(tikrs):
-    to_download = []
-    if args.force:
-        print('Forcing Downloads...')
-        for tikr in tikrs:
-            to_download.append(tikr)
-    else:
-        # Download missing files
-        for tikr in tikrs:
-            if not loader._is_downloaded(tikr):
-                to_download.append(tikr)
-
-    if len(to_download) != 0:
-        for tikr in tqdm(to_download, desc='Downloading', leave=False):
-            loader.query_server(tikr, force=args.force,
-                                filing_type=FilingType.FILING_10Q)
-            time.sleep(5)
 
 
 def change_digit_to_alphanumeric(text):
     for alph in '0123456789':
-        text = text.replace(alph, ' [ALPHANUMERIC] ')
+        text = text.replace(alph, '0')
     return text
 
 
-download_tikrs(tikrs)
-
 raw_data = list()
 label_map = set()
-for tikr in tikrs:
-    # Unpack downloaded files into relevant directories
-    loader.unpack_bulk(
-        tikr,
-        loading_bar=True,
-        force=args.force,
-        complete=False,
-        document_type='10-Q',
-        desc=f'{tikr} :Inflating HTM')
+for tikr in tqdm(tikrs, desc='Processing...'):
+
+    if len(parser.metadata._get_tikr(tikr)['submissions']) == 0:
+        EDGAR.load_files(
+            tikr, document_type='10q', force_remove_raw=False,
+            silent=SILENT, data_dir=DATA_DIR)
+
     annotated_docs = parser.get_annotated_submissions(tikr, silent=True)
 
     if (args.demo):
@@ -186,7 +163,7 @@ else:
     # k is the list of list labels
     label_data = [k[0] for k in itertools.chain.from_iterable(
         [j[1] for j in itertools.chain.from_iterable(
-                [i[0] for i in raw_data])])]
+            [i[0] for i in raw_data])])]
     all_labels_count = len(label_data)
     all_labels, counts = np.unique(label_data, return_counts=True)
     # sort the data based on its counts from most frequent

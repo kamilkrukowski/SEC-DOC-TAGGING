@@ -15,7 +15,7 @@ X = [i for i in data][:30]
 def split_data(
         X, y, train_ratio=0.6,
         test_ratio=0.2, val_ratio=0.2,
-        min_samples_per_class=1, random_state=None):
+        min_samples_per_class=1, random_state=2023):
     """
         Split the data into train, test, and validation sets
         while ensuring a minimum number of samples per prediction class
