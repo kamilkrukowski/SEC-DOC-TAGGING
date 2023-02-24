@@ -1,20 +1,24 @@
-import numpy as np
+
 import random
-import pandas as pd
+
 import pickle
 
 import torch
 
 with open('output.pkl', 'rb') as handle:
-    data =  pickle.load(handle)
+    data = pickle.load(handle)
 # data is the  inputs list generate from preprocess.py
-y = [i["y"] for i in data][:30]
-
+y = [i['y'] for i in data][:30]
 X = [i for i in data][:30]
 
-def split_data(X, y, train_ratio=0.6, test_ratio=0.1, val_ratio=0.2, min_samples_per_class=1, random_state=None):
+
+def split_data(
+        X, y, train_ratio=0.6,
+        test_ratio=0.2, val_ratio=0.2,
+        min_samples_per_class=1, random_state=None):
     """
-        Split the data into train, test, and validation sets while ensuring a minimum number of samples per prediction class
+        Split the data into train, test, and validation sets
+        while ensuring a minimum number of samples per prediction class
         in each split.
         Parameters
         ---------
@@ -27,7 +31,8 @@ def split_data(X, y, train_ratio=0.6, test_ratio=0.1, val_ratio=0.2, min_samples
         test_ratio: float, default=0.2
             Ratio of test set size to total dataset size (between 0 and 1)
         val_ratio: float, default=0.2
-            Ratio of validation set size to total dataset size (between 0 and 1)
+            Ratio of validation set size to total dataset size
+            (between 0 and 1)
         min_samples_per_class: int, default=1
             Minimum number of samples per prediction class in each split
         random_state: int or None, default=None
@@ -42,42 +47,49 @@ def split_data(X, y, train_ratio=0.6, test_ratio=0.1, val_ratio=0.2, min_samples
         ------
         ratio should add up to 1
     """
-    assert train_ratio + val_ratio + test_ratio == 1.0, "Train, validation, and test proportions must add up to 1.0"
-    # Calculate total number of samples and number of samples in each class
-    total_samples = len(y)
+    assert train_ratio + val_ratio + test_ratio == 1.0, \
+        'Train, validation, and test proportions must add up to 1.0'
+    # Calculate number of samples in each class
     num_classes = len(set(y[0]))
     class_counts = torch.sum(torch.stack(y), dim=0)
-    
+
     # Calculate minimum number of samples required in each class for each split
-    train_min_samples = [max(min_samples_per_class, int(count*train_ratio)) for count in class_counts]
-    test_min_samples = [max(min_samples_per_class, int(count*test_ratio)) for count in class_counts]
-    val_min_samples = [max(min_samples_per_class, int(count*val_ratio)) for count in class_counts]
-    
+    train_min_samples = [max(min_samples_per_class, int(
+        count*train_ratio)) for count in class_counts]
+    test_min_samples = [max(min_samples_per_class, int(
+        count*test_ratio)) for count in class_counts]
+    val_min_samples = [max(min_samples_per_class, int(
+        count*val_ratio)) for count in class_counts]
+
     # Create empty lists for train, test and validation sets
     train_set = [[] for i in range(num_classes)]
     test_set = [[] for i in range(num_classes)]
     val_set = [[] for i in range(num_classes)]
-    
+
     # Split samples for each class
     for i in range(num_classes):
         # generate sample for class with index i
-        class_samples = [j for j, x in enumerate([val[i] for val in y]) if x == 1]
+        class_samples = [j for j, x in enumerate(
+            [val[i] for val in y]) if x == 1]
 
         # Check if there are enough sample
-        min_samples_per_class = train_min_samples[i] + test_min_samples[i] + val_min_samples[i]
+        min_samples_per_class = train_min_samples[i] + \
+            test_min_samples[i] + val_min_samples[i]
         if len(class_samples) < min_samples_per_class:
-            print(f"Class idx {i}: has less than {min_samples_per_class} samples")
+            print(
+                f'Class {i}: has less than {min_samples_per_class} samples')
             continue
 
         # Shuffle samples
         random.seed(random_state)
         random.shuffle(class_samples)
-        
+
         # Divide samples into train, test and validation sets
+        train_upper = train_min_samples[i]+test_min_samples[i]
         train_samples = class_samples[:train_min_samples[i]]
-        test_samples = class_samples[train_min_samples[i]:train_min_samples[i]+test_min_samples[i]]
-        val_samples = class_samples[train_min_samples[i]+test_min_samples[i]:train_min_samples[i]+test_min_samples[i]+val_min_samples[i]]
-        
+        test_samples = class_samples[train_min_samples[i]:train_upper]
+        val_samples = class_samples[train_upper:min_samples_per_class]
+
         # Add samples to respective sets
         for j in train_samples:
             train_set[i].append(j)
@@ -85,7 +97,7 @@ def split_data(X, y, train_ratio=0.6, test_ratio=0.1, val_ratio=0.2, min_samples
             test_set[i].append(j)
         for j in val_samples:
             val_set[i].append(j)
-    
+
     # Concatenate sets for each class and return final split
     train_idx = [j for indices in train_set for j in indices]
     test_idx = [j for indices in test_set for j in indices]
@@ -98,8 +110,10 @@ def split_data(X, y, train_ratio=0.6, test_ratio=0.1, val_ratio=0.2, min_samples
 
     # Use the indices to split the data
     X_train, y_train = [X[i] for i in train_idx], [y[i] for i in train_idx]
-    X_val, y_val =[X[i] for i in val_idx], [y[i] for i in val_idx]
+    X_val, y_val = [X[i] for i in val_idx], [y[i] for i in val_idx]
     X_test, y_test = [X[i] for i in test_idx], [y[i] for i in test_idx]
 
     return X_train, X_val, X_test, y_train, y_val, y_test
+
+
 print(split_data(X, y))
